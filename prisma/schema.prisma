@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  VIEWER
+  MEMBER
+  LEAD
+  ADMIN
+}
+
+enum WorkItemType {
+  INCIDENT
+  CUSTOMER_ISSUE
+  PAYMENT
+  COMPLIANCE
+  TASK
+}
+
+enum WorkItemStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  RESOLVED
+  CLOSED
+}
+
+enum WorkItemPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id          String        @id @default(cuid())
+  email       String        @unique
+  name        String
+  password    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  memberships TeamMember[]
+  createdWIs  WorkItem[]    @relation("WorkItemCreator")
+  assignedWIs WorkItem[]    @relation("WorkItemAssignee")
+  comments    Comment[]
+  activity    Activity[]
+  approvals   Approval[]
+}
+
+model Team {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  members     TeamMember[]
+  workItems   WorkItem[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId, role])
+}
+
+model WorkItem {
+  id              String             @id @default(cuid())
+  title           String
+  description     String
+  type            WorkItemType
+  priority        WorkItemPriority
+  status          WorkItemStatus     @default(OPEN)
+  teamId          String
+  team            Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assigneeId      String?
+  assignee        User?              @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creatorId       String
+  creator         User               @relation("WorkItemCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  dueDate         DateTime?
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  comments        Comment[]
+  activities      Activity[]
+  approvals       Approval[]
+  idempotencyKeys IdempotencyKey[]
+
+  @@index([teamId, status])
+  @@index([teamId, priority])
+  @@index([teamId, assigneeId])
+  @@index([teamId, updatedAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String
+  workItemId String
+  authorId   String
+  createdAt  DateTime @default(now())
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([workItemId, createdAt])
+}
+
+model Activity {
+  id         String   @id @default(cuid())
+  workItemId String
+  actorId    String?
+  action     String
+  details    Json?
+  createdAt  DateTime @default(now())
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workItemId, createdAt])
+}
+
+model Approval {
+  id         String   @id @default(cuid())
+  workItemId String
+  approverId String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  workItem   WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  approver   User     @relation(fields: [approverId], references: [id], onDelete: Restrict)
+
+  @@index([workItemId, createdAt])
+}
+
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  userId       String
+  operation    String
+  key          String
+  requestHash  String
+  responseJson String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  workItemId   String?
+  workItem     WorkItem? @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, operation, key])
+  @@index([userId, operation])
+}
