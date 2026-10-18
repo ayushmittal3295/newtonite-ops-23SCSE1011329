@@ -51,6 +51,10 @@ The setup route is available only while the database has no users. After creatin
 
 `npm run db:seed` is optional demo data only. It deletes existing records and replaces them with demo users, teams, and work items; do not use it for real data.
 
+## Engineering decisions
+
+See [ENGINEERING_DECISIONS.md](./ENGINEERING_DECISIONS.md) for the architecture choices, trade-offs, workflow correctness measures, testing approach, and known limitations.
+
 ## Database and deployment
 
 SQLite is configured for a single-machine development instance. For a shared deployment, configure PostgreSQL and its Prisma driver adapter, use a strong private `JWT_SECRET`, restrict CORS and network access, and use a managed migration/backup process. Do not point the development seed or integration tests at production data. This repository is not yet configured as a hardened production deployment.
